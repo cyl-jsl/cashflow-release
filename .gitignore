@@ -1,0 +1,36 @@
+# Data
+data/*.db
+data/*.db-wal
+data/*.db-shm
+
+# Claude Code
+.claude/
+CLAUDE.md
+
+# Worktrees
+.worktrees/
+
+# macOS
+.DS_Store
+
+# Internal docs
+docs/
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+
+# Node
+node_modules/
+dist/
+
+# Environment
+.env
+.env.*
+
+# IDE
+.vscode/
+.idea/
