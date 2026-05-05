@@ -23,8 +23,8 @@ def calculate_available(
     total_balance = sum(a.balance for a in accounts)
 
     # 2. 展開範圍內的 Income
-    period_income = _sum_periodic_events_in_range(
-        db.query(Income).all(), "next_date", from_date, until_date
+    period_income = _sum_incomes_in_range(
+        db.query(Income).all(), from_date, until_date, db
     )
 
     # 3. 展開範圍內的 Obligation（排除 installment）
@@ -72,21 +72,49 @@ def _sum_periodic_events_in_range(
     return total
 
 
-def _sum_single_periodic(record, date_field: str, from_date: date, until_date: date) -> int:
-    """展開單筆記錄的週期，加總落在 [from_date, until_date] 內的金額。"""
+def _sum_incomes_in_range(
+    incomes: list, from_date: date, until_date: date, db: Session
+) -> int:
+    """收入展開：對每筆 income 查詢 adjustment map，再展開週期。"""
+    from app.models.income_adjustment import IncomeAdjustment
+
+    total = 0
+    for income in incomes:
+        adj_records = (
+            db.query(IncomeAdjustment)
+            .filter(
+                IncomeAdjustment.income_id == income.id,
+                IncomeAdjustment.effective_date >= from_date,
+                IncomeAdjustment.effective_date <= until_date,
+            )
+            .all()
+        )
+        adj_map = {r.effective_date: r.actual_amount for r in adj_records}
+        total += _sum_single_periodic(income, "next_date", from_date, until_date, adj_map)
+    return total
+
+
+def _sum_single_periodic(
+    record,
+    date_field: str,
+    from_date: date,
+    until_date: date,
+    adjustment_map: dict[date, int] | None = None,
+) -> int:
+    """展開單筆記錄的週期，加總落在 [from_date, until_date] 內的金額。
+    adjustment_map: {effective_date: actual_amount（分）}，僅收入使用。
+    """
     total = 0
     current = getattr(record, date_field)
+    adj = adjustment_map or {}
 
-    # 最多展開 120 期作為安全上限
     for _ in range(120):
         if current > until_date:
             break
-        # 檢查 end_date
         if record.end_date and current > record.end_date:
             break
         if current >= from_date:
-            total += record.amount
-        # 推進到下一期
+            total += adj.get(current, record.amount)
         next_val = advance_date(current, record.frequency)
         if next_val is None:
             break
@@ -155,7 +183,7 @@ def calculate_timeline(
             period_end = date(period_start.year, period_start.month, last_day)
 
         # 計算該期間的收入（使用既有 helper）
-        period_income = _sum_periodic_events_in_range(incomes, "next_date", period_start, period_end)
+        period_income = _sum_incomes_in_range(incomes, period_start, period_end, db)
 
         # 計算該期間的義務（排除 installment，使用既有 helper）
         period_obligations = 0

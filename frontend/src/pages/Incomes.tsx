@@ -7,6 +7,7 @@ import {
   useDeleteIncome,
 } from '../hooks/useIncomes'
 import type { Income } from '../api/types'
+import IncomeActualsList from '../components/IncomeActualsList'
 
 const FREQUENCIES: Record<string, string> = {
   monthly: '每月',
@@ -104,24 +105,27 @@ export default function Incomes() {
                 onCancel={() => setEditingId(null)}
               />
             ) : (
-              <div className="flex justify-between items-center">
-                <div>
-                  <p className="font-medium">{income.name}</p>
-                  <p className="text-sm text-gray-500">
-                    {FREQUENCIES[income.frequency]} ·{' '}
-                    {new Intl.NumberFormat('zh-TW', { style: 'currency', currency: 'TWD', minimumFractionDigits: 0 }).format(income.amount)}
-                    {' · 下次入帳 '}{income.next_date}
-                  </p>
+              <>
+                <div className="flex justify-between items-center">
+                  <div>
+                    <p className="font-medium">{income.name}</p>
+                    <p className="text-sm text-gray-500">
+                      {FREQUENCIES[income.frequency]} ·{' '}
+                      {new Intl.NumberFormat('zh-TW', { style: 'currency', currency: 'TWD', minimumFractionDigits: 0 }).format(income.amount)}
+                      {' · 下次入帳 '}{income.next_date}
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button className="text-sm text-indigo-600 hover:underline"
+                      onClick={() => setEditingId(income.id)}>編輯</button>
+                    <button className="text-sm text-red-600 hover:underline"
+                      onClick={() => { if (confirm('確定刪除？')) deleteIncome.mutate(income.id) }}>
+                      刪除
+                    </button>
+                  </div>
                 </div>
-                <div className="flex gap-2">
-                  <button className="text-sm text-indigo-600 hover:underline"
-                    onClick={() => setEditingId(income.id)}>編輯</button>
-                  <button className="text-sm text-red-600 hover:underline"
-                    onClick={() => { if (confirm('確定刪除？')) deleteIncome.mutate(income.id) }}>
-                    刪除
-                  </button>
-                </div>
-              </div>
+                <IncomeActualsList income={income} />
+              </>
             )}
           </div>
         ))}

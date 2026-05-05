@@ -19,6 +19,17 @@ export interface Income {
   note: string | null
 }
 
+export interface IncomeAdjustment {
+  id: number
+  income_id: number
+  effective_date: string
+  actual_amount: number
+  delta_amount: number
+  note: string | null
+  created_at: string
+  updated_at: string
+}
+
 export interface Obligation {
   id: number
   name: string

@@ -2,6 +2,8 @@
 
 API responses should be transformed into human-readable Chinese summaries, not raw JSON. Add relative days to dates for intuitive understanding.
 
+When the user is asking for reassurance-oriented budget guidance, do not lead with raw balance math. Lead with a single safe-to-use number, then separate book balance, reserved funds, and safety buffer.
+
 ---
 
 ## 1. Dashboard Summary
@@ -21,6 +23,42 @@ API responses should be transformed into human-readable Chinese summaries, not r
 ```
 
 ## 2. Available Amount
+
+### 2A. Safety-First Format
+
+Use this format for queries such as「這個月安全額度是多少」「我現在真正可花多少」「這筆錢能不能動」.
+
+Rules:
+
+- First line must answer with one number: `safe_available_amount`
+- Always state the assumed safety period
+- Always separate `帳面總餘額`, `不能動的預留`, and `安全邊界`
+- If the user has a recurring spending habit reserve, show it as `消費慣例預留`
+- If the user has requested a safety buffer, show it separately even when it is 0
+- If useful, add the lowest balance point in the period so the user knows where the real pressure is
+
+```
+本月安全額度：{safe_available_amount} 元
+前提：從今天到 {until_date}（{period_description}）已先扣掉必要支出、已知帳單／分期、消費慣例預留，並保留安全邊界 {safety_buffer} 元。
+
+三個關鍵數字：
+  帳面總餘額：{total_balance} 元
+  不能動的預留：{reserved_total} 元
+  真正可自由動用：{safe_available_amount} 元
+
+預留明細：
+  必要支出：{required_expenses} 元
+  已知信用卡帳單／分期：{credit_card_reserve} 元
+  消費慣例預留：{habit_spending_reserve} 元
+  安全邊界：{safety_buffer} 元
+
+風險提示：
+  最低水位：{lowest_balance} 元（{lowest_date}）
+```
+
+### 2B. Raw Period Breakdown
+
+Use this format only when the user explicitly wants the raw period math.
 
 ```
 到{period_description}（{until_date}，{relative_days} 天後）可動用：{available_amount} 元
@@ -80,4 +118,40 @@ Append to other responses when advance count > 0:
 
 ```
 （已自動推進 {income_count} 筆收入、{obligation_count} 筆義務的週期）
+```
+
+## 9. Income Adjustment
+
+### 9A. Upsert Actual
+
+Use after `POST /incomes/{id}/actuals`. Always show both the actual and delta vs base.
+
+```
+{income_name} {effective_date} 實領 {actual_amount} 元已記錄
+  基準金額：{base_amount} 元
+  本次差異：{delta_amount}（{+/-}）
+  備註：{note 或「無」}
+```
+
+If delta_amount is non-trivial (例：>= 5% of base 或 user has a preference), proactively note 對 forecast 的影響：
+「這次少領 X 元，會反映到 {effective_date} 之後的可用資金預估。」
+
+### 9B. List Adjustments
+
+Use after `GET /incomes/{id}/adjustments`. Sort by effective_date.
+
+```
+{income_name} 已記錄 {count} 筆實領：
+  {effective_date}    實領 {actual_amount}    差 {±delta}    {note 或 ''}
+  {effective_date}    實領 {actual_amount}    差 {±delta}    {note 或 ''}
+  ...
+未記錄的發薪日皆以基準 {base_amount} 元計算。
+```
+
+### 9C. Remove Adjustment
+
+Use after `DELETE /income-adjustments/{id}`. Tell user the row is gone, future forecast will fall back to base.
+
+```
+{income_name} {effective_date} 的 actual 已移除，回到使用基準 {base_amount} 元。
 ```
